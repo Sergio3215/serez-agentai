@@ -1,0 +1,72 @@
+// EpisodicMemory — memoria episódica para agentes
+// Usa arrays paralelos para contextos y respuestas (evita dicts en loops)
+
+// Returns [context, response] — use [0] for context, [1] for response
+export fn _makeEpisode(ctx, resp) {
+    return [ctx, resp]
+}
+
+export public class EpisodicMemory {
+    public EpisodicMemory(int capacity) {
+        this.capacity   = capacity
+        this.ep_ctx     = []
+        this.ep_resp    = []
+    }
+
+    public store(context, response) {
+        this.ep_ctx.push(context)
+        this.ep_resp.push(response)
+        if (this.ep_ctx.length() > this.capacity) {
+            let start = this.ep_ctx.length() - this.capacity
+            let tc = []
+            let tr = []
+            for (let i = start; i < this.ep_ctx.length(); i = i + 1) {
+                tc.push(this.ep_ctx[i])
+                tr.push(this.ep_resp[i])
+            }
+            this.ep_ctx  = tc
+            this.ep_resp = tr
+        }
+    }
+
+    public search(query, int top_k) {
+        let words = query.toLowerCase().split(" ")
+        let match_indices = []
+        for (let i = 0; i < this.ep_ctx.length(); i = i + 1) {
+            let text = this.ep_ctx[i].toLowerCase() + " " + this.ep_resp[i].toLowerCase()
+            let score = 0
+            for (let j = 0; j < words.length(); j = j + 1) {
+                if (text.contains(words[j])) { score = score + 1 }
+            }
+            if (score > 0) { match_indices.push(i) }
+        }
+        let results = []
+        let n = top_k
+        if (match_indices.length() < n) { n = match_indices.length() }
+        for (let i = 0; i < n; i = i + 1) {
+            let idx = match_indices[i]
+            results.push(_makeEpisode(this.ep_ctx[idx], this.ep_resp[idx]))
+        }
+        return results
+    }
+
+    public recent(int n) {
+        let total = this.ep_ctx.length()
+        let start = total - n
+        if (start < 0) { start = 0 }
+        let result = []
+        for (let i = start; i < total; i = i + 1) {
+            result.push(_makeEpisode(this.ep_ctx[i], this.ep_resp[i]))
+        }
+        return result
+    }
+
+    public clear() {
+        this.ep_ctx  = []
+        this.ep_resp = []
+    }
+
+    public length() {
+        return this.ep_ctx.length()
+    }
+}

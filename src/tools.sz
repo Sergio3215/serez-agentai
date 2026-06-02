@@ -1,0 +1,54 @@
+// Tool calling framework
+//
+// Tool(name, description, fn)
+//   .call(args_dict)   → result string
+//
+// ToolRegistry()
+//   .register(tool)
+//   .lookup(name)      → Tool or null
+//   .describe()        → string con todas las herramientas disponibles
+//   .callByName(name, args_dict) → result string
+
+export public class Tool {
+    public Tool(name, description, handler) {
+        this.name = name
+        this.description = description
+        this.handler = handler
+    }
+
+    public call(args) {
+        return this.handler(args)
+    }
+}
+
+export public class ToolRegistry {
+    public ToolRegistry() {
+        this.tools = []
+    }
+
+    public register(tool) {
+        this.tools.push(tool)
+    }
+
+    public lookup(name) {
+        for (let i = 0; i < this.tools.length(); i = i + 1) {
+            if (this.tools[i].name == name) { return this.tools[i] }
+        }
+        return null
+    }
+
+    public describe() {
+        let desc = "Available tools:\n"
+        for (let i = 0; i < this.tools.length(); i = i + 1) {
+            let t = this.tools[i]
+            desc = desc + "  - " + t.name + ": " + t.description + "\n"
+        }
+        return desc
+    }
+
+    public callByName(name, args) {
+        let tool = this.lookup(name)
+        if (tool == null) { return "ERROR: tool not found: " + name }
+        return tool.call(args)
+    }
+}

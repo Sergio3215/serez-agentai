@@ -1,0 +1,94 @@
+// Sampler — estrategias de sampling para generación de texto
+//
+// greedy(logits)              → token ID con mayor logit
+// sampleTemp(logits, temp)    → sampling con temperatura
+// topK(logits, k)             → sampling top-k
+// topP(logits, p)             → sampling nucleus (top-p)
+//
+// generate(model, tokenizer, prompt, max_tokens, config) → string
+//   config: {strategy, temperature, k, p}
+
+export fn greedy(logits) {
+    return logits.argmax()
+}
+
+export fn sampleTemp(logits, temp) {
+    if (temp <= 0.0) { return greedy(logits) }
+    let scaled = logits.scale(1.0 / temp)
+    let probs = scaled.softmax()
+    return _sampleFromProbs(probs)
+}
+
+export fn topK(logits, k) {
+    let n = logits.shape()[0]
+    if (k >= n) { return sampleTemp(logits, 1.0) }
+    // Find k-th largest value and mask below it
+    let vals = []
+    for (let i = 0; i < n; i = i + 1) { vals.push(logits.get(i)) }
+    vals.sort((a, b) => b - a)
+    let threshold = vals[k - 1]
+    let masked = []
+    for (let i = 0; i < n; i = i + 1) {
+        let v = logits.get(i)
+        if (v >= threshold) { masked.push(v) } else { masked.push(-999999.0) }
+    }
+    let masked_t = Tensor.from(masked)
+    return _sampleFromProbs(masked_t.softmax())
+}
+
+export fn topP(logits, p) {
+    let n = logits.shape()[0]
+    let probs_data = logits.softmax()
+    let vals = []
+    for (let i = 0; i < n; i = i + 1) { vals.push(probs_data.get(i)) }
+    // Sort indices by prob descending
+    let indices = []
+    for (let i = 0; i < n; i = i + 1) { indices.push(i) }
+    indices.sort((a, b) => vals[b] - vals[a])
+    // Cumulative sum until >= p
+    let cumsum = 0.0
+    let cutoff = n
+    for (let i = 0; i < n; i = i + 1) {
+        cumsum = cumsum + vals[indices[i]]
+        if (cumsum >= p && cutoff == n) { cutoff = i + 1 }
+    }
+    let masked = []
+    for (let i = 0; i < n; i = i + 1) { masked.push(-999999.0) }
+    for (let i = 0; i < cutoff; i = i + 1) { masked[indices[i]] = vals[indices[i]] }
+    let masked_t = Tensor.from(masked)
+    return _sampleFromProbs(masked_t.softmax())
+}
+
+export fn _sampleFromProbs(probs) {
+    let r = Random.random()
+    let cumsum = 0.0
+    let n = probs.shape()[0]
+    for (let i = 0; i < n; i = i + 1) {
+        cumsum = cumsum + probs.get(i)
+        if (cumsum >= r) { return i }
+    }
+    return n - 1
+}
+
+export fn generate(model, tokenizer, prompt, max_tokens, strategy, temperature, k, p) {
+    let ids = tokenizer.encode(prompt)
+    let eos_id = 2
+    for (let t = 0; t < max_tokens; t = t + 1) {
+        let logits = model.forward(ids)
+        let seq = ids.length()
+        let last_logits = logits.slice(seq - 1, seq).reshape([model.vocab_size])
+        let next_id = 0
+        if (strategy == "greedy") {
+            next_id = greedy(last_logits)
+        } else if (strategy == "temperature") {
+            next_id = sampleTemp(last_logits, temperature)
+        } else if (strategy == "topk") {
+            next_id = topK(last_logits, k)
+        } else {
+            next_id = topP(last_logits, p)
+        }
+        ids.push(next_id)
+        if (next_id == eos_id) { t = max_tokens }
+    }
+    return tokenizer.decode(ids)
+}

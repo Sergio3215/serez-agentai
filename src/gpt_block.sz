@@ -1,0 +1,67 @@
+// GPTBlock — transformer block GPT-style (pre-norm)
+//
+// Arquitectura:
+//   h = x + CausalMHA(LayerNorm(x))
+//   y = h + FFN(LayerNorm(h))   FFN = Dense(d_ff, gelu) → Dense(d_model)
+//
+// Pre-norm es más estable que post-norm para modelos profundos.
+
+import "causal_attn"
+
+export public class GPTBlock {
+    public GPTBlock(int d_model, int n_heads, int d_ff) {
+        this.attn = new CausalMHA(d_model, n_heads)
+        this.ln1  = new LayerNorm(d_model, 0.000001)
+        this.ff1  = new Dense(d_model, d_ff, "gelu")
+        this.ff2  = new Dense(d_ff, d_model, "linear")
+        this.ln2  = new LayerNorm(d_model, 0.000001)
+        this.frozen = false
+    }
+
+    public forward(x) {
+        let h = x.add(this.attn.forward(this.ln1.forward(x)))
+        return h.add(this.ff2.forward(this.ff1.forward(this.ln2.forward(h))))
+    }
+
+    public update(lr) {
+        if (this.frozen) { return }
+        this.attn.update(lr)
+        this.ln1.update(lr)
+        this.ff1.update(lr)
+        this.ff2.update(lr)
+        this.ln2.update(lr)
+    }
+
+    public freeze() {
+        this.frozen = true
+        this.attn.freeze()
+        this.ln1.freeze()
+        this.ff1.freeze()
+        this.ff2.freeze()
+        this.ln2.freeze()
+    }
+
+    public unfreeze() {
+        this.frozen = false
+        this.attn.unfreeze()
+        this.ln1.unfreeze()
+        this.ff1.unfreeze()
+        this.ff2.unfreeze()
+        this.ln2.unfreeze()
+    }
+
+    public getWeights() {
+        let ws = []
+        let a = this.attn.getWeights()
+        let b = this.ln1.getWeights()
+        let c = this.ff1.getWeights()
+        let d = this.ff2.getWeights()
+        let e = this.ln2.getWeights()
+        for (let i = 0; i < a.length(); i = i + 1) { ws.push(a[i]) }
+        for (let i = 0; i < b.length(); i = i + 1) { ws.push(b[i]) }
+        for (let i = 0; i < c.length(); i = i + 1) { ws.push(c[i]) }
+        for (let i = 0; i < d.length(); i = i + 1) { ws.push(d[i]) }
+        for (let i = 0; i < e.length(); i = i + 1) { ws.push(e[i]) }
+        return ws
+    }
+}

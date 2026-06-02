@@ -1,0 +1,54 @@
+// CharTokenizer — tokenizador a nivel de caracter (solo arrays, sin dicts)
+//
+// Tokens especiales: [PAD]=0, [BOS]=1, [EOS]=2, [UNK]=3
+
+export public class CharTokenizer {
+    public CharTokenizer() {
+        this.tokens = []
+        this.tokens.push("[PAD]")
+        this.tokens.push("[BOS]")
+        this.tokens.push("[EOS]")
+        this.tokens.push("[UNK]")
+        this.vocab_size = 4
+    }
+
+    public buildVocab(text) {
+        for (let i = 0; i < text.length(); i = i + 1) {
+            let ch = text.charAt(i)
+            let found = false
+            for (let j = 0; j < this.tokens.length(); j = j + 1) {
+                if (this.tokens[j] == ch) { found = true }
+            }
+            if (!found) {
+                this.tokens.push(ch)
+                this.vocab_size = this.tokens.length()
+            }
+        }
+    }
+
+    public encode(text) {
+        let ids = []
+        ids.push(1)
+        for (let i = 0; i < text.length(); i = i + 1) {
+            let ch = text.charAt(i)
+            let id = 3
+            for (let j = 4; j < this.tokens.length(); j = j + 1) {
+                if (this.tokens[j] == ch) { id = j }
+            }
+            ids.push(id)
+        }
+        ids.push(2)
+        return ids
+    }
+
+    public decode(ids) {
+        let text = ""
+        for (let i = 0; i < ids.length(); i = i + 1) {
+            let id = ids[i]
+            if (id >= 4 && id < this.tokens.length()) {
+                text = text + this.tokens[id]
+            }
+        }
+        return text
+    }
+}

@@ -1,0 +1,39 @@
+// LR Schedulers
+//
+// WarmupCosineScheduler(base_lr, warmup_steps, total_steps)
+//   .step(current_step) → lr
+//
+// WarmupLinearScheduler(base_lr, warmup_steps, total_steps)
+//   .step(current_step) → lr
+
+export public class WarmupCosineScheduler {
+    public WarmupCosineScheduler(base_lr, warmup_steps, total_steps) {
+        this.base_lr = base_lr
+        this.warmup = warmup_steps
+        this.total  = total_steps
+    }
+
+    public step(int t) {
+        if (t < this.warmup) {
+            return this.base_lr * t * 1.0 / this.warmup
+        }
+        let progress = (t - this.warmup) * 1.0 / (this.total - this.warmup)
+        return this.base_lr * 0.5 * (1.0 + Math.cos(3.14159265 * progress))
+    }
+}
+
+export public class WarmupLinearScheduler {
+    public WarmupLinearScheduler(base_lr, warmup_steps, total_steps) {
+        this.base_lr = base_lr
+        this.warmup = warmup_steps
+        this.total  = total_steps
+    }
+
+    public step(int t) {
+        if (t < this.warmup) {
+            return this.base_lr * t * 1.0 / this.warmup
+        }
+        let progress = (t - this.warmup) * 1.0 / (this.total - this.warmup)
+        return this.base_lr * (1.0 - progress)
+    }
+}

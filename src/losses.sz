@@ -1,0 +1,47 @@
+// Losses adicionales para serez-agentai
+//
+// klDivLoss(log_p, q)         → KL divergence KL(p||q) = sum(p * log(p/q))
+// focalLoss(logits, targets, gamma, alpha) → Focal loss para clasificación desbalanceada
+// contrastiveLoss(anchor, pos, neg, margin) → Contrastive / triplet loss
+
+fn klDivLoss(log_p, q) {
+    // log_p: log-probabilities [batch, classes]
+    // q: target probabilities [batch, classes]
+    // KL(q||p) = sum(q * (log(q) - log_p))
+    let log_q = q.log()
+    let diff = log_q.add(log_p.scale(-1.0))
+    return q.mul(diff).mean()
+}
+
+fn focalLoss(logits, targets, gamma, alpha) {
+    // targets: 1D array of class indices
+    // gamma: focusing parameter (default 2.0)
+    // alpha: class weight scalar
+    let n = logits.shape()[0]
+    let probs = logits.softmax()
+    let loss = Autodiff.crossEntropyLoss(logits, targets, n, logits.shape()[1])
+    // Focal weight: (1 - pt)^gamma where pt is probability of correct class
+    // Approximate: multiply CE loss by focal weight
+    let pt_vals = []
+    for (let i = 0; i < targets.length(); i = i + 1) {
+        pt_vals.push(probs.get(i, targets[i]))
+    }
+    let pt = Tensor.from(pt_vals)
+    let weight = pt.scale(-1.0).add(Tensor.ones([n])).pow(gamma).mean()
+    return loss.scale(alpha).mul(weight)
+}
+
+fn contrastiveLoss(anchor, positive, negative, margin) {
+    // anchor, positive, negative: [d] tensors (embeddings)
+    // margin: float (default 1.0)
+    // L = max(0, dist(a,p) - dist(a,n) + margin)
+    let ap = anchor.add(positive.scale(-1.0))
+    let an = anchor.add(negative.scale(-1.0))
+    let dist_ap = ap.dot(ap).sqrt()
+    let dist_an = an.dot(an).sqrt()
+    let raw = dist_ap.add(dist_an.scale(-1.0)).add(Tensor.from([margin]))
+    let zero = Tensor.from([0.0])
+    let loss_val = raw.get(0)
+    if (loss_val < 0.0) { return zero }
+    return raw
+}

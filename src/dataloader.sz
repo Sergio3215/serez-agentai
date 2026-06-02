@@ -1,0 +1,37 @@
+// AgentDataLoader — mini-batch loader con shuffling para entrenamiento de LMs
+//
+// AgentDataLoader(sequences, batch_size)
+//   sequences: array de arrays de token IDs
+//   .batches()   → array de batches, cada batch = array de secuencias
+//   .shuffle()   → reordena las secuencias
+
+export public class AgentDataLoader {
+    public AgentDataLoader(sequences, int batch_size) {
+        this.sequences = sequences
+        this.batch_size = batch_size
+    }
+
+    public shuffle() {
+        this.sequences = Random.shuffle(this.sequences)
+    }
+
+    public batches() {
+        let all_batches = []
+        let n = this.sequences.length()
+        for (let start = 0; start < n; start = start + this.batch_size) {
+            let end = start + this.batch_size
+            if (end > n) { end = n }
+            let batch = []
+            for (let i = start; i < end; i = i + 1) {
+                batch.push(this.sequences[i])
+            }
+            all_batches.push(batch)
+        }
+        return all_batches
+    }
+
+    public length() {
+        let n = this.sequences.length()
+        return parseInt((n + this.batch_size - 1) / this.batch_size)
+    }
+}

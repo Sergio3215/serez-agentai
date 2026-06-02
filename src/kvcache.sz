@@ -1,0 +1,45 @@
+// KVCache — caché de Keys y Values para inferencia eficiente
+
+export fn _makeKVEntry() {
+    let e = {}
+    e["k"] = []
+    e["v"] = []
+    return e
+}
+
+export public class KVCache {
+    public KVCache(int n_layers, int n_heads) {
+        this.n_layers = n_layers
+        this.n_heads = n_heads
+        this.cache = []
+        for (let l = 0; l < n_layers; l = l + 1) {
+            let layer_cache = []
+            for (let h = 0; h < n_heads; h = h + 1) {
+                layer_cache.push(_makeKVEntry())
+            }
+            this.cache.push(layer_cache)
+        }
+    }
+
+    public store(int layer, int head, k_vec, v_vec) {
+        this.cache[layer][head]["k"].push(k_vec)
+        this.cache[layer][head]["v"].push(v_vec)
+    }
+
+    public fetch(int layer, int head) {
+        return this.cache[layer][head]
+    }
+
+    public seqLen(int layer, int head) {
+        return this.cache[layer][head]["k"].length()
+    }
+
+    public reset() {
+        for (let l = 0; l < this.n_layers; l = l + 1) {
+            for (let h = 0; h < this.n_heads; h = h + 1) {
+                this.cache[l][h]["k"] = []
+                this.cache[l][h]["v"] = []
+            }
+        }
+    }
+}

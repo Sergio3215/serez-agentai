@@ -1,0 +1,97 @@
+// Agent — loop agéntico principal
+//
+// Flujo: percepción → razonamiento → acción → observación → loop
+//
+// Agent(model, tokenizer, tool_registry, memory, cfg)
+//   cfg: dict con max_turns, max_tokens, strategy, temperature
+//   .run(prompt)  → respuesta final
+//   .reset()      → limpia contexto
+
+import "tools"
+import "memory"
+import "sampler"
+
+export fn _makeAction(name, args_raw) {
+    let a = {}
+    a["name"]     = name
+    a["args_raw"] = args_raw
+    return a
+}
+
+// Parsea "[TOOL:name|arg1=val1,arg2=val2]" del texto generado
+// Retorna {name, args_raw} o null si no hay tool call
+export fn _parseToolCall(text) {
+    let start = text.indexOf("[TOOL:")
+    if (start < 0) { return null }
+    let end = text.indexOf("]")
+    if (end < 0) { return null }
+    let inner = text.substring(start + 6, end)
+    let pipe = inner.indexOf("|")
+    let name = inner
+    let args_raw = ""
+    if (pipe >= 0) {
+        name = inner.substring(0, pipe)
+        args_raw = inner.substring(pipe + 1, inner.length())
+    }
+    return _makeAction(name, args_raw)
+}
+
+// Parsea "key=val,key2=val2" en array de pares [[key,val],...]
+export fn _parseArgs(args_raw) {
+    let result = []
+    if (args_raw.length() == 0) { return result }
+    let pairs = args_raw.split(",")
+    for (let i = 0; i < pairs.length(); i = i + 1) {
+        let kv = pairs[i].split("=")
+        if (kv.length() >= 2) {
+            result.push([kv[0], kv[1]])
+        }
+    }
+    return result
+}
+
+export public class Agent {
+    public Agent(model, tokenizer, tool_registry, mem, cfg) {
+        this.model   = model
+        this.tok     = tokenizer
+        this.tools   = tool_registry
+        this.memory  = mem
+        this.cfg     = cfg
+        this.context = ""
+    }
+
+    public run(prompt) {
+        let max_turns  = this.cfg["max_turns"]
+        let max_tokens = this.cfg["max_tokens"]
+        let strategy   = this.cfg["strategy"]
+        let temp       = this.cfg["temperature"]
+
+        this.context = this.context + "User: " + prompt + "\n"
+        let turn = 0
+        let final_response = ""
+
+        while (turn < max_turns) {
+            let response = generate(
+                this.model, this.tok, this.context,
+                max_tokens, strategy, temp, 40, 0.9
+            )
+            let action = _parseToolCall(response)
+            if (action != null) {
+                let tool_name = action["name"]
+                let args_raw  = action["args_raw"]
+                let obs = this.tools.callByName(tool_name, args_raw)
+                this.context = this.context + "Assistant: " + response + "\nObservation: " + obs + "\n"
+                turn = turn + 1
+            } else {
+                final_response = response
+                this.memory.store(prompt, response)
+                turn = max_turns
+            }
+        }
+        return final_response
+    }
+
+    public reset() {
+        this.context = ""
+    }
+}

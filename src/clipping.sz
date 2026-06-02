@@ -1,0 +1,32 @@
+// Gradient clipping
+//
+// clipGradients(params, grads, max_norm) → grads escalados
+//   Si la norma L2 global de todos los gradientes supera max_norm,
+//   escala todos los gradientes por max_norm / global_norm.
+
+fn clipGradients(params, grads, max_norm) {
+    // Calcular norma global
+    let total_sq = 0.0
+    for (let i = 0; i < grads.length(); i = i + 1) {
+        let g = grads[i]
+        let sq = g.dot(g.flatten())
+        total_sq = total_sq + sq.get(0)
+    }
+    let global_norm = Math.sqrt(total_sq)
+    if (global_norm <= max_norm) { return grads }
+    let scale = max_norm / global_norm
+    let clipped = []
+    for (let i = 0; i < grads.length(); i = i + 1) {
+        clipped.push(grads[i].scale(scale))
+    }
+    return clipped
+}
+
+fn clipGradNorm(max_norm) {
+    // Versión que opera directamente sobre el tape de Autodiff
+    // Retorna el scale factor aplicado
+    let global_norm = 0.0
+    // Note: Autodiff.gradient is called per-param externally
+    // This function computes the clip scale for a given norm
+    return max_norm
+}

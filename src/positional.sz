@@ -1,0 +1,23 @@
+// Positional encoding
+//
+// sinusoidalPE(seq_len, d_model) → Tensor [seq_len, d_model]
+//   PE(pos, 2i)   = sin(pos / 10000^(2i/d_model))
+//   PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+
+fn sinusoidalPE(seq_len, d_model) {
+    let data = []
+    for (let pos = 0; pos < seq_len; pos = pos + 1) {
+        for (let i = 0; i < d_model; i = i + 1) {
+            let i2 = parseInt(i / 2) * 2
+            let div = Math.pow(10000.0, i2 * 1.0 / d_model)
+            let val = 0.0
+            if (i % 2 == 0) {
+                val = Math.sin(pos * 1.0 / div)
+            } else {
+                val = Math.cos(pos * 1.0 / div)
+            }
+            data.push(val)
+        }
+    }
+    return Tensor.from(data).reshape([seq_len, d_model])
+}

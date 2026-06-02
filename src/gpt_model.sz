@@ -1,0 +1,67 @@
+// GPTModel — modelo transformer decoder-only (GPT-style)
+//
+// Arquitectura: Embedding + PE → N × GPTBlock → LayerNorm → head lineal → logits
+//
+// GPTModel(vocab_size, d_model, n_heads, d_ff, n_layers, max_seq)
+//   .forward(token_ids_array)  → logits Tensor [seq, vocab_size]
+//   .update(lr)
+//   .save(path) / .load(path)
+
+import "gpt_block"
+import "positional"
+
+export public class GPTModel {
+    public GPTModel(int vocab_size, int d_model, int n_heads, int d_ff, int n_layers, int max_seq) {
+        this.vocab_size = vocab_size
+        this.d_model = d_model
+        this.n_layers = n_layers
+        this.max_seq = max_seq
+        this.tok_emb = Autodiff.xavierNormal([vocab_size, d_model])
+        this.ln_final = new LayerNorm(d_model, 0.000001)
+        this.head = new Dense(d_model, vocab_size, "linear")
+        this.blocks = []
+        for (let i = 0; i < n_layers; i = i + 1) {
+            this.blocks.push(new GPTBlock(d_model, n_heads, d_ff))
+        }
+    }
+
+    public forward(ids) {
+        // ids: array of token IDs
+        let seq = ids.length()
+        let ids_tensor = Tensor.from(ids)
+        let x = Autodiff.embedding(ids_tensor, this.tok_emb)
+        let pe = sinusoidalPE(seq, this.d_model)
+        x = x.add(pe)
+        for (let i = 0; i < this.blocks.length(); i = i + 1) {
+            x = this.blocks[i].forward(x)
+        }
+        x = this.ln_final.forward(x)
+        return this.head.forward(x)
+    }
+
+    public update(lr) {
+        let g = Autodiff.gradient(this.tok_emb)
+        this.tok_emb = this.tok_emb.add(g.scale(-lr))
+        for (let i = 0; i < this.blocks.length(); i = i + 1) {
+            this.blocks[i].update(lr)
+        }
+        this.ln_final.update(lr)
+        this.head.update(lr)
+    }
+
+    public freeze() {
+        for (let i = 0; i < this.blocks.length(); i = i + 1) {
+            this.blocks[i].freeze()
+        }
+        this.ln_final.freeze()
+        this.head.freeze()
+    }
+
+    public unfreeze() {
+        for (let i = 0; i < this.blocks.length(); i = i + 1) {
+            this.blocks[i].unfreeze()
+        }
+        this.ln_final.unfreeze()
+        this.head.unfreeze()
+    }
+}

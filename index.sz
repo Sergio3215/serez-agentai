@@ -1,0 +1,45 @@
+// serez-agentai — Transformer GPT-style + framework agéntico para Serez-Code
+// Version 1.0.0
+//
+// Requiere: serez-ai (capas Dense, LayerNorm, MultiHeadAttention, etc.)
+//
+// Clases principales:
+//   CharTokenizer           ← tokenizador a nivel de caracter
+//   GPTModel                ← transformer decoder-only completo
+//   GPTBlock                ← bloque transformer pre-norm con causal masking
+//   CausalMHA               ← multi-head attention con máscara causal
+//   KVCache                 ← caché K/V para inferencia eficiente
+//   WarmupCosineScheduler   ← scheduler con warmup + cosine decay
+//   WarmupLinearScheduler   ← scheduler con warmup + linear decay
+//   AgentDataLoader         ← mini-batch loader con shuffling
+//   EpisodicMemory          ← memoria episódica del agente
+//   Tool / ToolRegistry     ← framework de tool calling
+//   Agent                   ← loop agéntico principal
+//
+// Funciones:
+//   sinusoidalPE(seq, d)    ← positional encoding sinusoidal
+//   greedy(logits)          ← sampling greedy
+//   sampleTemp(logits, t)   ← sampling con temperatura
+//   topK(logits, k)         ← sampling top-k
+//   topP(logits, p)         ← sampling nucleus
+//   generate(...)           ← generación de texto completa
+//   klDivLoss(...)          ← KL divergence loss
+//   focalLoss(...)          ← Focal loss
+//   contrastiveLoss(...)    ← Contrastive/triplet loss
+//   clipGradients(...)      ← gradient clipping
+
+import "serez-ai"
+import "src/tokenizer"
+import "src/positional"
+import "src/causal_attn"
+import "src/gpt_block"
+import "src/gpt_model"
+import "src/kvcache"
+import "src/sampler"
+import "src/losses"
+import "src/scheduler"
+import "src/clipping"
+import "src/dataloader"
+import "src/tools"
+import "src/memory"
+import "src/agent"

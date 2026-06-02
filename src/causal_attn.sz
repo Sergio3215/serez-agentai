@@ -1,0 +1,95 @@
+// CausalMHA — Multi-head self-attention con causal masking (GPT-style)
+//
+// Diferencia con serez-ai MHA: aplica máscara causal antes del softmax
+// para que cada posición solo atienda a posiciones anteriores o iguales.
+//
+// CausalMHA(d_model, n_heads)
+//   .forward(x)   — x: [seq, d_model] → [seq, d_model]
+
+export fn _causalMask(seq_len, n_heads) {
+    let data = []
+    for (let h = 0; h < n_heads; h = h + 1) {
+        for (let i = 0; i < seq_len; i = i + 1) {
+            for (let j = 0; j < seq_len; j = j + 1) {
+                if (j <= i) { data.push(0.0) } else { data.push(-999999.0) }
+            }
+        }
+    }
+    return Tensor.from(data).reshape([n_heads, seq_len, seq_len])
+}
+
+export public class CausalMHA {
+    public CausalMHA(int d_model, int n_heads) {
+        this.d_model = d_model
+        this.n_heads = n_heads
+        this.d_head = parseInt(d_model / n_heads)
+        let std = Math.sqrt(2.0 / d_model)
+        this.Wq = Random.normalTensor([d_model, d_model], 0.0, std)
+        this.Wk = Random.normalTensor([d_model, d_model], 0.0, std)
+        this.Wv = Random.normalTensor([d_model, d_model], 0.0, std)
+        this.Wo = Random.normalTensor([d_model, d_model], 0.0, std)
+        this.mWq = Tensor.zeros([d_model, d_model])
+        this.vWq = Tensor.zeros([d_model, d_model])
+        this.mWk = Tensor.zeros([d_model, d_model])
+        this.vWk = Tensor.zeros([d_model, d_model])
+        this.mWv = Tensor.zeros([d_model, d_model])
+        this.vWv = Tensor.zeros([d_model, d_model])
+        this.mWo = Tensor.zeros([d_model, d_model])
+        this.vWo = Tensor.zeros([d_model, d_model])
+        this.t = 0
+        this.frozen = false
+    }
+
+    public forward(x) {
+        let seq = x.shape()[0]
+        let Q = x.matmul(this.Wq)
+        let K = x.matmul(this.Wk)
+        let V = x.matmul(this.Wv)
+
+        // Split heads: [seq, d_model] → [n_heads, seq, d_head]
+        let Q_h = Q.reshape([seq, this.n_heads, this.d_head]).permute([1, 0, 2])
+        let K_h = K.reshape([seq, this.n_heads, this.d_head]).permute([1, 0, 2])
+        let V_h = V.reshape([seq, this.n_heads, this.d_head]).permute([1, 0, 2])
+
+        // Scores: [n_heads, seq, seq]
+        let scale = 1.0 / Math.sqrt(this.d_head * 1.0)
+        let K_t = K_h.permute([0, 2, 1])
+        let scores = Q_h.bmm(K_t).scale(scale)
+
+        // Apply causal mask and softmax
+        let mask = _causalMask(seq, this.n_heads)
+        let masked_scores = scores.add(mask)
+        let attn = masked_scores.softmax()
+
+        // Output: [n_heads, seq, d_head] → [seq, d_model]
+        let ctx = attn.bmm(V_h).permute([1, 0, 2]).reshape([seq, this.d_model])
+        return ctx.matmul(this.Wo)
+    }
+
+    public update(lr) {
+        if (this.frozen) { return }
+        let gWq = Autodiff.gradient(this.Wq)
+        let gWk = Autodiff.gradient(this.Wk)
+        let gWv = Autodiff.gradient(this.Wv)
+        let gWo = Autodiff.gradient(this.Wo)
+        this.t = this.t + 1
+        this.Wq = Autodiff.adamwStep(this.Wq, gWq, this.mWq, this.vWq, this.t, lr)
+        this.Wk = Autodiff.adamwStep(this.Wk, gWk, this.mWk, this.vWk, this.t, lr)
+        this.Wv = Autodiff.adamwStep(this.Wv, gWv, this.mWv, this.vWv, this.t, lr)
+        this.Wo = Autodiff.adamwStep(this.Wo, gWo, this.mWo, this.vWo, this.t, lr)
+    }
+
+    public freeze() { this.frozen = true }
+    public unfreeze() { this.frozen = false }
+
+    public getWeights() {
+        return [this.Wq, this.Wk, this.Wv, this.Wo]
+    }
+
+    public setWeights(ws) {
+        this.Wq = ws[0]
+        this.Wk = ws[1]
+        this.Wv = ws[2]
+        this.Wo = ws[3]
+    }
+}
