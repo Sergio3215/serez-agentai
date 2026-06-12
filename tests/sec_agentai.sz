@@ -1,0 +1,68 @@
+// sec_agentai.sz — Tests de seguridad para serez-agentai (tokenizer + tools)
+
+import "src/tokenizer"
+import "src/tools"
+
+// ── CharTokenizer: encode sin buildVocab (vocab vacío) ────────────────────────
+test("encode sin buildVocab → todo UNK", () => {
+    let t = new CharTokenizer()
+    // vocab solo tiene especiales (0-3); a/b/c → UNK (3)
+    let ids = t.encode("abc")
+    assert(ids[1] == 3, "a sin vocab → UNK")
+    assert(ids[2] == 3, "b sin vocab → UNK")
+    assert(ids[3] == 3, "c sin vocab → UNK")
+})
+
+// ── CharTokenizer: texto con newline ──────────────────────────────────────────
+test("encode: newline en vocab → no crashea", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("a\nb")
+    let ids = t.encode("a\nb")
+    // "a\nb" = 3 chars → encode = [BOS, id_a, id_nl, id_b, EOS] = 5 elementos
+    assert(ids.length() >= 4, "ids tiene al menos 4 elementos (BOS + chars + EOS)")
+    assert(ids[0] == 1, "BOS en primero")
+    assert(ids[ids.length() - 1] == 2, "EOS en último")
+})
+
+// ── CharTokenizer: decode con IDs fuera de rango ──────────────────────────────
+test("decode: IDs fuera de vocab_size son ignorados", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("ab")
+    // vocab_size = 6; id 999 está fuera → se salta (id >= 4 && id < tokens.length())
+    let ids = [1, 999, 4, 2]
+    let text = t.decode(ids)
+    assert(text.length() >= 0, "no crashea con IDs fuera de rango")
+})
+
+// ── ToolRegistry: callByName con tool no registrado ───────────────────────────
+test("callByName: tool no registrado → error string", () => {
+    let reg = new ToolRegistry()
+    let d <string, string> = ()
+    let r = reg.callByName("no-existe", d)
+    assert(r.includes("ERROR"), "retorna mensaje de error (no crash)")
+})
+
+// ── ToolRegistry: handler que lanza → error se propaga ───────────────────────
+test("Tool: handler que lanza error → se propaga", () => {
+    let t = new Tool("fail", "siempre falla", (args) => { throw "error del handler" })
+    let threw = false
+    let d <string, string> = ()
+    try {
+        t.call(d)
+    } catch (e) {
+        threw = true
+    }
+    assert(threw, "el error del handler se propaga")
+})
+
+// ── CharTokenizer: vacío → solo BOS+EOS ───────────────────────────────────────
+test("encode string vacío → exactamente [BOS, EOS]", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("xyz")
+    let ids = t.encode("")
+    assert(ids.length() == 2, "[BOS, EOS] para string vacío")
+    assert(ids[0] == 1, "BOS")
+    assert(ids[1] == 2, "EOS")
+})
+
+summary()

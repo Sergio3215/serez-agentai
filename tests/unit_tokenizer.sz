@@ -1,0 +1,84 @@
+// unit_tokenizer.sz — Tests para serez-agentai/src/tokenizer.sz
+
+import "src/tokenizer"
+
+// ── Tokens especiales por defecto ──────────────────────────────────────────────
+test("CharTokenizer: vocab_size inicial = 4 (tokens especiales)", () => {
+    let t = new CharTokenizer()
+    assert(t.vocab_size == 4, "PAD=0, BOS=1, EOS=2, UNK=3")
+})
+test("CharTokenizer: tokens[0..3] son los especiales", () => {
+    let t = new CharTokenizer()
+    assert(t.tokens[0] == "[PAD]", "PAD en pos 0")
+    assert(t.tokens[1] == "[BOS]", "BOS en pos 1")
+    assert(t.tokens[2] == "[EOS]", "EOS en pos 2")
+    assert(t.tokens[3] == "[UNK]", "UNK en pos 3")
+})
+
+// ── buildVocab ─────────────────────────────────────────────────────────────────
+test("buildVocab: añade chars únicos al vocab", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("abc")
+    assert(t.vocab_size == 7, "4 especiales + 3 chars = 7")
+})
+test("buildVocab: no duplica chars", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("aaa")
+    assert(t.vocab_size == 5, "4 especiales + 1 char único = 5")
+})
+test("buildVocab: acumula en llamadas sucesivas", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("ab")
+    t.buildVocab("bc")
+    assert(t.vocab_size == 7, "4 especiales + a, b, c = 7 (b no se duplica)")
+})
+
+// ── encode ─────────────────────────────────────────────────────────────────────
+test("encode: empieza con BOS (1) y termina con EOS (2)", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("hi")
+    let ids = t.encode("hi")
+    assert(ids[0] == 1, "primero = BOS")
+    assert(ids[ids.length() - 1] == 2, "último = EOS")
+})
+test("encode: chars conocidos tienen IDs >= 4", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("ab")
+    let ids = t.encode("a")
+    // ids = [BOS, id_a, EOS]
+    assert(ids.length() == 3, "longitud = 3")
+    assert(ids[1] >= 4, "id del char conocido >= 4")
+})
+test("encode: char desconocido → UNK (3)", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("ab")
+    let ids = t.encode("z")
+    assert(ids[1] == 3, "char fuera de vocab → UNK")
+})
+test("encode string vacío → [BOS, EOS]", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("x")
+    let ids = t.encode("")
+    assert(ids.length() == 2, "[BOS, EOS] para string vacío")
+    assert(ids[0] == 1, "BOS")
+    assert(ids[1] == 2, "EOS")
+})
+
+// ── decode ─────────────────────────────────────────────────────────────────────
+test("decode: roundtrip encode→decode", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("hola mundo")
+    let ids = t.encode("hola")
+    let text = t.decode(ids)
+    assert(text == "hola", "roundtrip correcto")
+})
+test("decode: ignora tokens especiales (0,1,2,3)", () => {
+    let t = new CharTokenizer()
+    t.buildVocab("ab")
+    // IDs especiales sólo → decode vacío
+    let ids = [0, 1, 2, 3]
+    let text = t.decode(ids)
+    assert(text == "", "tokens especiales no aparecen en decode")
+})
+
+summary()

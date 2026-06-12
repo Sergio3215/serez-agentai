@@ -1,0 +1,63 @@
+// unit_tools.sz — Tests para serez-agentai/src/tools.sz (Tool + ToolRegistry)
+
+import "src/tools"
+
+// ── Tool ──────────────────────────────────────────────────────────────────────
+test("Tool: call invoca el handler", () => {
+    let t = new Tool("echo", "retorna el arg x", (args) => args["x"])
+    let d <string, string> = ()
+    d["x"] = "mundo"
+    let r = t.call(d)
+    assert(r == "mundo", "handler invocado correctamente")
+})
+test("Tool: name y description accesibles", () => {
+    let t = new Tool("add", "suma a+b", (args) => "ok")
+    assert(t.name == "add", "nombre correcto")
+    assert(t.description == "suma a+b", "descripción correcta")
+})
+test("Tool: handler sin args (ignora dict)", () => {
+    let t = new Tool("always_ok", "siempre retorna OK", (args) => "OK")
+    let d <string, string> = ()
+    let r = t.call(d)
+    assert(r == "OK", "retorna OK")
+})
+
+// ── ToolRegistry ──────────────────────────────────────────────────────────────
+test("ToolRegistry: lookup de tool registrado", () => {
+    let reg = new ToolRegistry()
+    let t = new Tool("ping", "pong", (args) => "pong")
+    reg.register(t)
+    let found = reg.lookup("ping")
+    assert(found != null, "tool encontrado")
+    assert(found.name == "ping", "nombre correcto")
+})
+test("ToolRegistry: lookup de tool no registrado retorna null", () => {
+    let reg = new ToolRegistry()
+    let found = reg.lookup("inexistente")
+    assert(found == null, "null para tool no registrado")
+})
+test("ToolRegistry: callByName ejecuta el handler", () => {
+    let reg = new ToolRegistry()
+    reg.register(new Tool("upper", "mayúsculas", (args) => "UPPER"))
+    let d <string, string> = ()
+    let result = reg.callByName("upper", d)
+    assert(result == "UPPER", "callByName invoca handler")
+})
+test("ToolRegistry: callByName con tool no registrado retorna error", () => {
+    let reg = new ToolRegistry()
+    let d <string, string> = ()
+    let result = reg.callByName("no-existe", d)
+    assert(result.includes("ERROR"), "retorna mensaje de error")
+})
+test("ToolRegistry: múltiples tools, lookup correcto", () => {
+    let reg = new ToolRegistry()
+    reg.register(new Tool("a", "first", (args) => "A"))
+    reg.register(new Tool("b", "second", (args) => "B"))
+    reg.register(new Tool("c", "third", (args) => "C"))
+    let tb = reg.lookup("b")
+    assert(tb != null, "tool b encontrado")
+    let d <string, string> = ()
+    assert(tb.call(d) == "B", "tool b retorna B")
+})
+
+summary()
