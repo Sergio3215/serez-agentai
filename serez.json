@@ -1,6 +1,6 @@
 {
   "name": "serez-agentai",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Transformer GPT-style + framework agéntico para Serez-Code — tokenizer, causal attention, KV-cache, sampling, tools, memory, agent loop",
   "main": "index.sz",
   "author": "SerezDev",
