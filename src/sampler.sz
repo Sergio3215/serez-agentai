@@ -60,7 +60,7 @@ export fn topP(logits, p) {
 }
 
 export fn _sampleFromProbs(probs) {
-    let r = Random.random()
+    let r = Random.decimal()
     let cumsum = 0.0
     let n = probs.shape()[0]
     for (let i = 0; i < n; i = i + 1) {
@@ -76,7 +76,9 @@ export fn generate(model, tokenizer, prompt, max_tokens, strategy, temperature, 
     for (let t = 0; t < max_tokens; t = t + 1) {
         let logits = model.forward(ids)
         let seq = ids.length()
-        let last_logits = logits.slice(seq - 1, seq).reshape([model.vocab_size])
+        // Última fila de logits [seq, vocab]: Tensor.slice() corta sobre los datos
+        // APLANADOS, así que tomamos el rango [(seq-1)*vocab, seq*vocab) -> 1D [vocab].
+        let last_logits = logits.slice((seq - 1) * model.vocab_size, seq * model.vocab_size)
         let next_id = 0
         if (strategy == "greedy") {
             next_id = greedy(last_logits)

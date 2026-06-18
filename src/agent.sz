@@ -12,7 +12,7 @@ import "memory"
 import "sampler"
 
 export fn _makeAction(name, args_raw) {
-    let a = {}
+    let a <string, any> = ()
     a["name"]     = name
     a["args_raw"] = args_raw
     return a

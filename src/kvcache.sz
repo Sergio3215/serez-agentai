@@ -1,7 +1,7 @@
 // KVCache — caché de Keys y Values para inferencia eficiente
 
 export fn _makeKVEntry() {
-    let e = {}
+    let e <string, any> = ()
     e["k"] = []
     e["v"] = []
     return e
